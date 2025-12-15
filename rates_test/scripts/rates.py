@@ -87,7 +87,7 @@ class RatesPipeline:
     ) -> None:
         """Validate reference input data."""
 
-        # 1️⃣ Unique ccy_pair check
+        # Unique ccy_pair check
         duplicated = rates_ccy["ccy_pair"].duplicated()
         if duplicated.any():
             dupes = rates_ccy.loc[duplicated, "ccy_pair"].unique()
@@ -101,7 +101,7 @@ class RatesPipeline:
     def validate_outputs(df: pd.DataFrame) -> None:
         """Validate output new_price and comments."""
 
-        # 1️⃣ convert_price == False → new_price must equal price
+        # convert_price == False → new_price must equal price
         mask_no_conversion = df["convert_price"] == False
 
         if mask_no_conversion.any():
@@ -117,7 +117,7 @@ class RatesPipeline:
                     f"(rows: {rows})"
                 )
 
-        # 2️⃣ Unsupported ccy_pair
+        # Unsupported ccy_pair
         # convert_price == NaN → new_price == NaN and comment == 'ccy_pair not supported'
         mask_unsupported = df["convert_price"].isna()
 
@@ -138,7 +138,7 @@ class RatesPipeline:
                     f"(rows: {rows})"
                 )
 
-        # 3️⃣ Missing spot_mid_rate
+        # Missing spot_mid_rate
         # spot_mid_rate == NaN & convert_price == True →
         # new_price == NaN and correct comment
         mask_no_spot = (
@@ -205,4 +205,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+
     main()
