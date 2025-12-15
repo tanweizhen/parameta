@@ -58,7 +58,7 @@ class RollingStdevPipeline:
     def validate_outputs(df: pd.DataFrame) -> None:
         """Validate rolling stdev outputs."""
 
-        # 1️⃣ No duplicate snap times per security
+        # No duplicate snap times per security
         duplicated = df.duplicated(
             subset=["security_id", "snap_time"]
         )
@@ -68,7 +68,7 @@ class RollingStdevPipeline:
                 f"Duplicate (security_id, snap_time) rows detected: {rows}"
             )
 
-        # 2️⃣ snap_time strictly increasing per security
+        # snap_time strictly increasing per security
         time_diff = df.groupby("security_id")["snap_time"].diff()
         if (time_diff <= pd.Timedelta(0)).any():
             rows = df.loc[
@@ -79,7 +79,7 @@ class RollingStdevPipeline:
                 f"(rows: {rows})"
             )
 
-        # 3️⃣ stdev only valid when 20 contiguous points exist
+        # stdev only valid when 20 contiguous points exist
         for col in ["bid", "mid", "ask"]:
             stdev_col = f"{col}_stdev"
 
@@ -96,7 +96,7 @@ class RollingStdevPipeline:
                     f"(rows: {rows})"
                 )
 
-        # 4️⃣ Non-negative stdev
+        # Non-negative stdev
         for col in ["bid_stdev", "mid_stdev", "ask_stdev"]:
             if (df[col] < 0).any():
                 rows = df.loc[df[col] < 0].index.tolist()
@@ -134,4 +134,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+
     main()
