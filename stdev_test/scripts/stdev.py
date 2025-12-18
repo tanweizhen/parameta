@@ -9,6 +9,9 @@ class RollingStdevPipeline:
     """Pipeline to compute rolling standard deviations."""
 
     PRICE_COLUMNS: List[str] = ["bid", "mid", "ask"]
+    STDEV_COLUMNS: List[str] = ["bid_stdev", "mid_stdev", "ask_stdev"]
+    START_TIME = pd.Timestamp("2021-11-20 00:00:00")
+    END_TIME = pd.Timestamp("2021-11-23 09:00:00")
 
     def __init__(self, input_dir: Path, output_dir: Path) -> None:
         self.input_dir = input_dir
@@ -52,7 +55,64 @@ class RollingStdevPipeline:
                 .reset_index(level=[0, 1], drop=True)
             )
 
-        return df
+        for col in RollingStdevPipeline.STDEV_COLUMNS:
+            df[col] = (
+                df
+                .groupby(["security_id"])[col]
+                .ffill()
+            )
+
+        output_cols = ["security_id", "snap_time", *RollingStdevPipeline.STDEV_COLUMNS]
+
+        # Generate the hourly intervals for each security id
+
+        # Unique security ids
+        security_ids = df["security_id"].unique()
+
+        # Hourly intervals from start time to end time
+        hours = pd.date_range(RollingStdevPipeline.START_TIME, RollingStdevPipeline.END_TIME, freq="h")
+
+        hourly_intervals = (
+            pd.MultiIndex.from_product(
+                [security_ids,hours],
+                names=["security_id","snap_time"],
+            )
+            .to_frame(index=False)
+        )
+
+        # Merge values from initial df (real + forward filled stdevs)
+        hourly_intervals = pd.merge(
+            hourly_intervals,
+            df[output_cols],
+            on=["security_id", "snap_time"],
+            how="left",
+        )
+
+        # Add last known snap_time for each security id, as it is previously forward filled this will have the most recent stdev from contiguous value
+        last_value = (
+            df[df["snap_time"] < RollingStdevPipeline.START_TIME]
+            .sort_values("snap_time")
+            .groupby("security_id")
+            .tail(1)
+        )[output_cols]
+
+        output = pd.concat(
+            [
+                last_value,
+                hourly_intervals,
+            ],
+            ignore_index=True,
+        ).sort_values(["security_id", "snap_time"])
+
+        # Forward fill
+        output[RollingStdevPipeline.STDEV_COLUMNS] = (
+            output.groupby("security_id")[RollingStdevPipeline.STDEV_COLUMNS].ffill()
+        )
+
+        # Filter out the last known snap time
+        output = output[output["snap_time"] >= RollingStdevPipeline.START_TIME]
+
+        return output
 
     @staticmethod
     def validate_outputs(df: pd.DataFrame) -> None:
@@ -134,5 +194,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-
     main()
